@@ -8,9 +8,9 @@ data:
   KUBE_SECRET: flux-system # does not yet exist -- will be created in the same Namespace
   SSH_KEY_NAME: identity
   SYNC_PERIOD: "3600"  # tokens expire; refresh faster than that
-  GIT_REPO: git@github.com:alam0rt/dotfiles.git
+  GIT_REPO: git@github.com:alam0rt/ops-kube.git
   GIT_BRANCH: main
-  GIT_SSH_COMMAND: ssh -i /app/ssh_keys/${SSH_KEY_NAME:-id_rsa} -F /dev/null
+  GIT_SSH_COMMAND: ssh -i /app/ssh_keys/${SSH_KEY_NAME:-id_rsa} -o UserKnownHostsFile=/app/ssh_keys/known_hosts -F /dev/null
 
 ---
 # This Deployment frequently fetches registry tokens and applies them as an imagePullSecret.
@@ -46,7 +46,7 @@ spec:
             reconcile() {
               echo reconciling...
               workdir
-              get-git-repos
+              get-git-repos || true
             }
         command:
         - bash
@@ -99,6 +99,8 @@ spec:
             name: keys
           - mountPath: /app/clonedir
             name: clonedir
+          - mountPath: /tmp
+            name: tmpfs
       volumes:
         - name: keys
           secret:
@@ -106,6 +108,9 @@ spec:
             defaultMode: 0400
         - name: clonedir
           emptyDir: {}
+        - name: tmpfs
+          emptyDir:
+            medium: Memory
 
 
 
