@@ -7,3 +7,6 @@ build:
  
 push:
 	docker push $(TAG)
+
+deploy:
+	kustomize build . | kubectl apply -f -

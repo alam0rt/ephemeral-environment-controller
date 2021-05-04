@@ -5,13 +5,17 @@ metadata:
   name: ephemeral-environment-controller
 data:
   # Patch this ConfigMap with additional values needed for your cloud
-  KUBE_SECRET: my-registry-token  # does not yet exist -- will be created in the same Namespace
+  KUBE_SECRET: flux-system # does not yet exist -- will be created in the same Namespace
+  SSH_KEY_NAME: identity
   SYNC_PERIOD: "3600"  # tokens expire; refresh faster than that
+  GIT_REPO: git@github.com:alam0rt/dotfiles.git
+  GIT_BRANCH: main
+  GIT_SSH_COMMAND: ssh -i /app/ssh_keys/${SSH_KEY_NAME:-id_rsa} -F /dev/null
 
 ---
 # This Deployment frequently fetches registry tokens and applies them as an imagePullSecret.
 # It's done as a 1-replica Deployment rather than a CronJob, because CronJob scheduling can
-# block cluster bootstraps and cold-reboots from obtaining registry tokens for a considerable time.
+# block cluster bootstraps and cGIT_SSH_COMMANDold-reboots from obtaining registry tokens for a considerable time.
 # This deployment will immediately fetch a token, which reduces latency for working image updates.
 apiVersion: apps/v1
 kind: Deployment
@@ -36,6 +40,7 @@ spec:
           value: |-
             reconcile() {
               echo reconciling...
+              get-git-repos
             }
         command:
         - bash
@@ -45,14 +50,8 @@ spec:
           # env var is expanded by k8s before the pod starts
           $(RECONCILE_SH)
 
-          apply-secret() {
-            /kbin/kubectl create secret docker-registry "${1}" \
-              --docker-password="${2}" \
-              --docker-username="${3}" \
-              --docker-server="${4}" \
-              --dry-run=client -o=yaml \
-              | grep -v "creationTimestamp:" \
-              | /kbin/kubectl apply -f -
+          get-git-repos() {
+              git clone ${GIT_REPO} --branch ${GIT_BRANCH} --single-branch 
           }
 
           pause_loop() {
@@ -83,6 +82,15 @@ spec:
             pause_loop & wait $!
           done
         resources: {}
+        volumeMounts:
+          - mountPath: /app/ssh_keys
+            name: keys
+      volumes:
+        - name: keys
+          secret:
+            secretName: $(KUBE_SECRET)
+            defaultMode: 0400
+
 
 
 # RBAC necessary for our Deployment to apply our imagePullSecret
@@ -101,9 +109,29 @@ rules:
   - create
   - update
   - patch
-  # # Lock this down to the specific Secret name  (Optional)
   resourceNames:
   - $(KUBE_SECRET)  # templated from kustomize vars referencing ConfigMap, also see kustomizeconfig.yaml
+- apiGroups: ["kustomize.toolkit.fluxcd.io"]
+  resources:
+    - kustomizations
+  verbs:
+    - get
+    - create
+    - update
+    - patch
+    - delete
+    - list
+- apiGroups: ["source.toolkit.fluxcd.io"]
+  resources:
+    - gitrepositories
+  verbs:
+    - get
+    - create
+    - update
+    - patch
+    - delete
+    - list
+  # # Lock this down to the specific Secret name  (Optional)
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

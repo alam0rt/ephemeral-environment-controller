@@ -23,3 +23,5 @@ images:
 - name: busybox
   newName: docker.io/samlockart/gitops-toolkit
   newTag: dev
+
+namespace: flux-system
