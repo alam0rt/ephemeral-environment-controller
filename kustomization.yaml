@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app: ephemeral-environment-controller
+
+resources:
+- ephemeral.yaml
+
+vars:
+- name: KUBE_SECRET
+  objref:
+    kind: ConfigMap
+    name: ephemeral-environment-controller
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.KUBE_SECRET
+
+configurations:
+- kustomizeconfig.yaml
+
+images:
+- name: busybox
+  newName: docker.io/fluxcd/flux-cli
+  newTag: v0.13.2
