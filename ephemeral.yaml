@@ -40,6 +40,7 @@ spec:
           value: |-
             reconcile() {
               echo reconciling...
+              workdir
               get-git-repos
             }
         command:
@@ -49,6 +50,10 @@ spec:
           # template reconcile() into the script
           # env var is expanded by k8s before the pod starts
           $(RECONCILE_SH)
+
+          workdir() {
+              cd /app/clonedir
+          }
 
           get-git-repos() {
               git clone ${GIT_REPO} --branch ${GIT_BRANCH} --single-branch 
@@ -85,11 +90,15 @@ spec:
         volumeMounts:
           - mountPath: /app/ssh_keys
             name: keys
+          - mountPath: /app/clonedir
+            name: clonedir
       volumes:
         - name: keys
           secret:
             secretName: $(KUBE_SECRET)
             defaultMode: 0400
+        - name: clonedir
+          emptyDir: {}
 
 
 
