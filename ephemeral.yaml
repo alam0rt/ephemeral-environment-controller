@@ -32,12 +32,18 @@ spec:
             reconcile() {
               echo reconciling...
               workdir
-              get-git-repos || true
+              clone_repo
+              git branch -a --list 'origin/*feature*' | parse_branches | sort -u > /tmp/branches
+              kubectl get gitrepository -oname | grep feature | cut -d/ -f2 | sort -u > /tmp/in_cluster
+              comm -2 <(cat /tmp/branches | sanitize_branches) /tmp/in_cluster > /tmp/to_delete
             }
         command:
         - bash
         - -ceu
         - |-
+          # constants
+          REPO_DIR=repo
+
           # template reconcile() into the script
           # env var is expanded by k8s before the pod starts
           $(RECONCILE_SH)
@@ -46,12 +52,25 @@ spec:
               cd /app/clonedir
           }
 
-          get-git-repos() {
-              git clone ${GIT_REPO} --branch ${GIT_BRANCH} --single-branch 
+          clone_repo() {
+              git clone ${GIT_REPO} --branch ${GIT_BRANCH} --single-branch ${REPO_DIR}
+              cd ${REPO_DIR}
           }
 
           pause_loop() {
             sleep "${SYNC_PERIOD:-3600}" || true
+          }
+
+          parse_branches() {
+            tr '/' ' ' | awk '{print $3}'
+          }
+
+          sanitize_branches() {
+          # "--branch_TEST-@@@.^-name--" --> "branch-test-name"
+            tr '[:upper:]' '[:lower:]' \
+            | tr -c '[:alnum:]' - \
+            | tr -s - \
+            | sed -e 's/^-*//' -e 's/-*$//' -e 's/--*/-/'
           }
 
           graceful_exit() {
