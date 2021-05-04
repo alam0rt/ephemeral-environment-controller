@@ -28,10 +28,15 @@ spec:
     type: Recreate
   template:
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       serviceAccount: ephemeral-environment-controller
       containers:
       - image: busybox  # override this with a cloud-specific image
         name: controller
+        imagePullPolicy: Always
         envFrom:
         - configMapRef:
             name: ephemeral-environment-controller
@@ -87,6 +92,8 @@ spec:
             pause_loop & wait $!
           done
         resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
         volumeMounts:
           - mountPath: /app/ssh_keys
             name: keys

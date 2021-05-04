@@ -5,7 +5,7 @@ all: build
 build:
 	docker build . -t $(TAG)
  
-push:
+push: build
 	docker push $(TAG)
 
 deploy:
