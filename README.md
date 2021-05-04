@@ -1,5 +1,5 @@
 # ephemeral-controller
-**ephemeral-controller** is a WIP [flux](https://github.com/fluxcd/flux2) controller which will create short-lived environments from a branch with the intention of running e2e tests or otherwise increasing development feedback loops.
+**ephemeral-controller** is a WIP [flux](https://github.com/fluxcd/flux2) controller which will create short-lived environments from a branch with the intention of running e2e tests or otherwise helping with the development process
 
 ## why?
 
