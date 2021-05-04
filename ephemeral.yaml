@@ -35,6 +35,8 @@ spec:
               get_branches_from_origin
               get_branches_in_cluster
               get_branches_to_delete
+              create_ephemeral_environments
+              reap_ephemeral_environments
             }
         command:
         - bash
@@ -81,7 +83,7 @@ spec:
             | sed -e 's/^-*//' -e 's/-*$//' -e 's/--*/-/'
           }
 
-          create_ephemeral_environment() {
+          create_ephemeral_environments() {
             for raw_br in $(cat /tmp/branches); do
               kube_br="$(echo "${raw_br}" | sanitize_branches)"
               echo "creating ephemeral environment $kube_br"
@@ -118,7 +120,7 @@ spec:
 
 
           reap_ephemeral_environments() {
-            for kube_br in $(cat ./to_delete); do
+            for kube_br in $(cat /tmp/to_delete); do
               kubectl delete --wait=false gitrepository "${kube_br}" --dry-run=server
               kubectl delete --wait=false kustomization "${kube_br}" --dry-run=server
               kubectl delete --wait=false namespace "${kube_br}" --dry-run=server
