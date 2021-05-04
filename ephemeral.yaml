@@ -31,11 +31,10 @@ spec:
           value: |-
             reconcile() {
               echo reconciling...
-              workdir
               clone_repo
-              git branch -a --list 'origin/*feature*' | parse_branches | sort -u > /tmp/branches
-              kubectl get gitrepository -oname | grep feature | cut -d/ -f2 | sort -u > /tmp/in_cluster
-              comm -2 <(cat /tmp/branches | sanitize_branches) /tmp/in_cluster > /tmp/to_delete
+              get_branches_from_origin
+              get_branches_in_cluster
+              get_branches_to_delete
             }
         command:
         - bash
@@ -48,11 +47,20 @@ spec:
           # env var is expanded by k8s before the pod starts
           $(RECONCILE_SH)
 
-          workdir() {
-              cd /app/clonedir
+          get_branches_from_origin() {
+            git branch -a --list 'origin/*feature*' | parse_branches | sort -u > /tmp/branches
+          }
+
+          get_branches_in_cluster() {
+            kubectl get gitrepository -oname | grep feature | cut -d/ -f2 | sort -u > /tmp/in_cluster
+          }
+
+          get_branches_to_delete() {
+            comm -2 <(cat /tmp/branches | sanitize_branches) /tmp/in_cluster > /tmp/to_delete
           }
 
           clone_repo() {
+              cd /app/clonedir
               git clone ${GIT_REPO} --branch ${GIT_BRANCH} --single-branch ${REPO_DIR}
               cd ${REPO_DIR}
           }
@@ -71,6 +79,50 @@ spec:
             | tr -c '[:alnum:]' - \
             | tr -s - \
             | sed -e 's/^-*//' -e 's/-*$//' -e 's/--*/-/'
+          }
+
+          create_ephemeral_environment() {
+            for raw_br in $(cat /tmp/branches); do
+              kube_br="$(echo "${raw_br}" | sanitize_branches)"
+              echo "creating ephemeral environment $kube_br"
+              kubectl apply -f- --dry-run=server << EOF
+          ---
+          apiVersion: source.toolkit.fluxcd.io/v1beta1
+          kind: GitRepository
+          metadata:
+            name: ${kube_br}
+            namespace: flux-system
+          spec:
+            interval: 1m0s
+            ref:
+              branch: ${raw_br}
+            url: ssh://${GIT_REPO}
+            secretRef: flux-system
+          ---
+          apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+          kind: Kustomization
+          metadata:
+            name: ${kube_br}
+            namespace: flux-system
+          spec:
+            interval: 1m0s
+            path: ./
+            prune: true
+            sourceRef:
+              kind: GitRepository
+              name: ${kube_br}
+            targetNamespace: ${kube_br}
+          EOF
+            done
+          }
+
+
+          reap_ephemeral_environments() {
+            for kube_br in $(cat ./to_delete); do
+              kubectl delete --wait=false gitrepository "${kube_br}" --dry-run=server
+              kubectl delete --wait=false kustomization "${kube_br}" --dry-run=server
+              kubectl delete --wait=false namespace "${kube_br}" --dry-run=server
+            done
           }
 
           graceful_exit() {
