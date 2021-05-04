@@ -21,5 +21,5 @@ configurations:
 
 images:
 - name: busybox
-  newName: docker.io/fluxcd/flux-cli
-  newTag: v0.13.2
+  newName: docker.io/samlockart/gitops-toolkit
+  newTag: dev
