@@ -9,4 +9,4 @@ push: build
 	docker push $(TAG)
 
 deploy:
-	kustomize build . | kubectl apply -f -
+	kustomize build . | kubectl apply -f - 

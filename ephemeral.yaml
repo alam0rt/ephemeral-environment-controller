@@ -1,21 +1,7 @@
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ephemeral-environment-controller
-data:
-  # Patch this ConfigMap with additional values needed for your cloud
-  KUBE_SECRET: flux-system # does not yet exist -- will be created in the same Namespace
-  SSH_KEY_NAME: identity
-  SYNC_PERIOD: "3600"  # tokens expire; refresh faster than that
-  GIT_REPO: git@github.com:alam0rt/ops-kube.git
-  GIT_BRANCH: main
-  GIT_SSH_COMMAND: ssh -i /app/ssh_keys/${SSH_KEY_NAME:-id_rsa} -o UserKnownHostsFile=/app/ssh_keys/known_hosts -F /dev/null
-
----
 # This Deployment frequently fetches registry tokens and applies them as an imagePullSecret.
 # It's done as a 1-replica Deployment rather than a CronJob, because CronJob scheduling can
-# block cluster bootstraps and cGIT_SSH_COMMANDold-reboots from obtaining registry tokens for a considerable time.
+# block cluster bootstraps and cold-reboots from obtaining registry tokens for a considerable time.
 # This deployment will immediately fetch a token, which reduces latency for working image updates.
 apiVersion: apps/v1
 kind: Deployment

@@ -25,3 +25,7 @@ images:
   newTag: dev
 
 namespace: flux-system
+
+configMapGenerator:
+- name: ephemeral-environment-controller
+  env: config/env
